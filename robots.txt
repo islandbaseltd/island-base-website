@@ -1,0 +1,4 @@
+﻿User-agent: *
+Allow: /
+
+Sitemap: https://islandbaseltd.github.io/island-base-website/sitemap.xml
