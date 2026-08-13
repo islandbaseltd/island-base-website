@@ -126,6 +126,30 @@ const updateConditionalFields = () => {
 serviceSelect?.addEventListener("change", updateConditionalFields);
 updateConditionalFields();
 
+document.querySelectorAll(".js-quote-form").forEach(link => {
+  link.addEventListener("click", event => {
+    event.preventDefault();
+    const requestedService = link.dataset.service || "";
+    const matchingOption = [...(serviceSelect?.options || [])]
+      .find(option => option.value === requestedService);
+
+    if (serviceSelect) {
+      serviceSelect.value = matchingOption ? requestedService : "";
+      serviceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    history.replaceState(null, "", "#booking");
+    document.querySelector("#booking")?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start"
+    });
+
+    window.setTimeout(() => {
+      (matchingOption ? document.querySelector('input[name="name"]') : serviceSelect)?.focus();
+    }, 500);
+  });
+});
+
 const enforceBeachDuration = () => {
   const fullDayOnly = ["Salybia", "Toco"].includes(beachSelect?.value);
   const halfDayOption = beachDuration?.querySelector('option[value^="Half-day"]');
