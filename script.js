@@ -193,7 +193,7 @@ document.querySelector("#booking-form")?.addEventListener("submit", event => {
   ].filter(line => line !== null).join("\n");
 
   announceTrackingHook("booking_form", values.service);
-  window.open(whatsappUrl(message), "_blank", "noopener");
+  window.location.assign(whatsappUrl(message));
 });
 
 document.querySelector("#year").textContent = new Date().getFullYear();
