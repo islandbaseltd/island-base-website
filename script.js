@@ -1,21 +1,29 @@
 const config = window.ISLAND_BASE_CONFIG;
 
-if (!config) {
-  throw new Error("Island Base site configuration could not be loaded.");
-}
+if (!config) throw new Error("Island Base site configuration could not be loaded.");
 
-const defaultMessage = (service = "a private ride") => `Hello Island Base, I would like to request a quotation.
+const defaultMessage = (service = "") => `Hi, thank you for contacting Island Base Chauffeur Services.
+To prepare my personalized quotation, here are my journey details:
 
-Service: ${service === "a private ride" ? "" : service}
+Name:
+Service required: ${service === "a private ride" ? "" : service}
 Date:
-Pickup time:
-Pickup location:
-Destination:
-One-way or return:
-Passengers:
-Luggage:
-Additional stops:
-Special requests:`;
+Requested pickup time:
+Exact pickup location:
+Final destination or return location:
+One-way or return service:
+Expected return-collection time, if applicable:
+Additional stops, in the correct order:
+Expected waiting time:
+Number of passengers:
+Luggage details, if applicable:
+Flight number, for an airport pickup:
+Beach destination and preferred package length, for a beach trip:
+Party venue and expected collection time, for party transportation:
+Multiple pickup or drop-off locations:
+Transportation assistance or special access requirements:
+
+I understand that my booking is confirmed only after all stated confirmation requirements are completed and Island Base issues written confirmation.`;
 
 const whatsappUrl = message =>
   `https://wa.me/${config.phoneInternational}?text=${encodeURIComponent(message)}`;
@@ -23,12 +31,7 @@ const whatsappUrl = message =>
 const announceTrackingHook = (source, service) => {
   const detail = { source, service };
   window.dispatchEvent(new CustomEvent("islandbase:whatsapp-click", { detail }));
-
-  // Google Analytics is not loaded by this site. If it is approved and added
-  // later, this hook starts recording WhatsApp clicks automatically.
-  if (typeof window.gtag === "function") {
-    window.gtag("event", "whatsapp_click", detail);
-  }
+  if (typeof window.gtag === "function") window.gtag("event", "whatsapp_click", detail);
 };
 
 document.querySelectorAll("[data-phone-link]").forEach(link => {
@@ -67,9 +70,9 @@ if (testimonialGrid && reviewTemplate) {
   config.reviews.forEach(review => {
     const card = reviewTemplate.content.cloneNode(true);
     const stars = card.querySelector(".review-stars");
-    stars.textContent = "★".repeat(review.rating);
+    stars.textContent = "\u2605".repeat(review.rating);
     stars.setAttribute("aria-label", `${review.rating} out of 5 stars`);
-    card.querySelector("blockquote").textContent = `“${review.text}”`;
+    card.querySelector("blockquote").textContent = `\u201c${review.text}\u201d`;
     card.querySelector("strong").textContent = review.name;
     card.querySelector("footer span").textContent = review.source;
     testimonialGrid.append(card);
@@ -95,36 +98,75 @@ menuButton?.addEventListener("click", () => {
   if (isOpen) nav.querySelector("a")?.focus();
 });
 
-nav?.querySelectorAll("a").forEach(link =>
-  link.addEventListener("click", () => closeMenu())
-);
-
+nav?.querySelectorAll("a").forEach(link => link.addEventListener("click", () => closeMenu()));
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape" && nav?.classList.contains("open")) {
-    closeMenu({ returnFocus: true });
-  }
+  if (event.key === "Escape" && nav?.classList.contains("open")) closeMenu({ returnFocus: true });
 });
 
 const dateInput = document.querySelector('input[type="date"]');
 if (dateInput) dateInput.min = new Date().toISOString().split("T")[0];
 
+const serviceSelect = document.querySelector("#service-select");
+const conditionalFields = document.querySelectorAll(".conditional-field");
+const beachSelect = document.querySelector("#beach-select");
+const beachDuration = document.querySelector("#beach-duration");
+
+const updateConditionalFields = () => {
+  const service = serviceSelect?.value || "";
+  conditionalFields.forEach(field => {
+    const isRelevant = field.dataset.services.split("|").includes(service);
+    field.hidden = !isRelevant;
+    field.querySelectorAll("input, select, textarea").forEach(control => {
+      control.disabled = !isRelevant;
+      control.required = isRelevant;
+    });
+  });
+};
+
+serviceSelect?.addEventListener("change", updateConditionalFields);
+updateConditionalFields();
+
+const enforceBeachDuration = () => {
+  const fullDayOnly = ["Salybia", "Toco"].includes(beachSelect?.value);
+  const halfDayOption = beachDuration?.querySelector('option[value^="Half-day"]');
+  if (halfDayOption) halfDayOption.disabled = fullDayOnly;
+  if (fullDayOnly && beachDuration?.value.startsWith("Half-day")) beachDuration.value = "";
+};
+
+beachSelect?.addEventListener("change", enforceBeachDuration);
+
 document.querySelector("#booking-form")?.addEventListener("submit", event => {
   event.preventDefault();
   const values = Object.fromEntries(new FormData(event.currentTarget));
-  const message = `Hello Island Base, I would like to request a quotation.
-
-Full name: ${values.name}
-Service: ${values.service}
-Date: ${values.date}
-Pickup time: ${values.time}
-Pickup location: ${values.pickup}
-Destination: ${values.destination}
-One-way or return: ${values.journey}
-Passengers: ${values.passengers}
-Luggage: ${values.luggage || "None specified"}
-Additional stops: ${values.stops || "None"}
-Waiting requirements: ${values.waiting || "None"}
-Special requests: ${values.requests || "None"}`;
+  const optionalLine = (label, value) => value ? `${label}: ${value}` : null;
+  const message = [
+    "Hi, thank you for contacting Island Base Chauffeur Services.",
+    "To prepare my personalized quotation, here are my journey details:",
+    "",
+    `Name: ${values.name}`,
+    `Service required: ${values.service}`,
+    `Date: ${values.date}`,
+    `Requested pickup time: ${values.time}`,
+    `Exact pickup location: ${values.pickup}`,
+    `Final destination or return location: ${values.destination}`,
+    `One-way or return service: ${values.journey}`,
+    optionalLine("Expected return-collection time", values.returnTime),
+    `Additional stops, in the correct order: ${values.stops || "None"}`,
+    `Expected waiting time: ${values.waiting || "None"}`,
+    `Number of passengers: ${values.passengers}`,
+    `Luggage details: ${values.luggage || "None"}`,
+    optionalLine("Flight number", values.flightNumber),
+    optionalLine("Beach destination", values.beach),
+    optionalLine("Beach package duration", values.beachDuration),
+    optionalLine("Party or event venue", values.partyVenue),
+    optionalLine("Party collection time", values.partyCollectionTime),
+    `Multiple pickup or drop-off locations: ${values.multipleLocations}`,
+    `Transportation assistance or access requirements: ${values.accessRequirements || "None"}`,
+    `Parking, entrance or known access requirements: ${values.siteAccess || "None"}`,
+    `Other special arrangements: ${values.requests || "None"}`,
+    "",
+    "I understand that my booking is confirmed only after all stated confirmation requirements are completed and Island Base issues written confirmation."
+  ].filter(line => line !== null).join("\n");
 
   announceTrackingHook("booking_form", values.service);
   window.open(whatsappUrl(message), "_blank", "noopener");
