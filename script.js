@@ -30,6 +30,15 @@ const whatsappUrl = message =>
 
 const announceTrackingHook = (source, service) => {
   const detail = { source, service };
+  try {
+    const key = "islandbase_whatsapp_clicks";
+    const counts = JSON.parse(localStorage.getItem(key) || "{}");
+    const label = `${source}:${service || "general"}`;
+    counts[label] = (Number(counts[label]) || 0) + 1;
+    localStorage.setItem(key, JSON.stringify(counts));
+  } catch (_) {
+    // Booking continues normally if private browsing blocks local storage.
+  }
   window.dispatchEvent(new CustomEvent("islandbase:whatsapp-click", { detail }));
   if (typeof window.gtag === "function") window.gtag("event", "whatsapp_click", detail);
 };
@@ -125,6 +134,12 @@ const updateConditionalFields = () => {
 
 serviceSelect?.addEventListener("change", updateConditionalFields);
 updateConditionalFields();
+
+const requestedService = new URLSearchParams(window.location.search).get("service");
+if (requestedService && serviceSelect && [...serviceSelect.options].some(option => option.value === requestedService)) {
+  serviceSelect.value = requestedService;
+  updateConditionalFields();
+}
 
 document.querySelectorAll(".js-quote-form").forEach(link => {
   link.addEventListener("click", event => {
